@@ -1,6 +1,5 @@
 package com.ranzan.morphebuilds.ui.home
 
-import android.content.Intent
 import com.ranzan.morphebuilds.core.mvi.UiEffect
 import com.ranzan.morphebuilds.core.mvi.UiIntent
 import com.ranzan.morphebuilds.core.mvi.UiState
@@ -85,7 +84,7 @@ sealed interface HomeIntent : UiIntent {
 
 sealed interface HomeEffect : UiEffect {
     data class ShowSnackbar(val message: String) : HomeEffect
-    data class LaunchInstallIntent(val intent: Intent) : HomeEffect
-    data class LaunchShareIntent(val intent: Intent) : HomeEffect
+    data class InstallApk(val fileUri: String) : HomeEffect
+    data class ShareFile(val fileUri: String, val isModule: Boolean) : HomeEffect
     object NavigateToSettings : HomeEffect
 }

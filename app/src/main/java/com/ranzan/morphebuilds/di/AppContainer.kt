@@ -9,6 +9,8 @@ import com.ranzan.morphebuilds.data.repository.DownloadRepositoryImpl
 import com.ranzan.morphebuilds.data.repository.PackageInspectorRepositoryImpl
 import com.ranzan.morphebuilds.data.repository.ReleaseRepositoryImpl
 import com.ranzan.morphebuilds.data.repository.SettingsRepositoryImpl
+import com.ranzan.morphebuilds.data.work.WorkManagerScheduler
+import com.ranzan.morphebuilds.domain.repository.CleanupScheduler
 import com.ranzan.morphebuilds.domain.repository.DownloadRepository
 import com.ranzan.morphebuilds.domain.repository.PackageInspectorRepository
 import com.ranzan.morphebuilds.domain.repository.ReleaseRepository
@@ -19,6 +21,8 @@ import com.ranzan.morphebuilds.domain.usecase.DownloadBuildUseCase
 import com.ranzan.morphebuilds.domain.usecase.GetReleasesUseCase
 import com.ranzan.morphebuilds.domain.usecase.ManageSettingsUseCase
 import com.ranzan.morphebuilds.domain.usecase.ScanOldBuildsUseCase
+import com.ranzan.morphebuilds.domain.usecase.ScheduleCleanupUseCase
+import com.ranzan.morphebuilds.domain.usecase.ValidateRepositoryUseCase
 
 class AppContainer(val context: Context) {
 
@@ -33,6 +37,7 @@ class AppContainer(val context: Context) {
     val settingsRepository: SettingsRepository by lazy { SettingsRepositoryImpl(preferencesDataStore) }
     val downloadRepository: DownloadRepository by lazy { DownloadRepositoryImpl(fileDownloader, storageManager) }
     val packageInspectorRepository: PackageInspectorRepository by lazy { PackageInspectorRepositoryImpl(context) }
+    val cleanupScheduler: CleanupScheduler by lazy { WorkManagerScheduler(context) }
 
     // Use cases
     val getReleasesUseCase: GetReleasesUseCase by lazy { GetReleasesUseCase(releaseRepository) }
@@ -41,4 +46,6 @@ class AppContainer(val context: Context) {
     val downloadBuildUseCase: DownloadBuildUseCase by lazy { DownloadBuildUseCase(downloadRepository) }
     val cleanOldBuildsUseCase: CleanOldBuildsUseCase by lazy { CleanOldBuildsUseCase(scanOldBuildsUseCase, downloadRepository) }
     val manageSettingsUseCase: ManageSettingsUseCase by lazy { ManageSettingsUseCase(settingsRepository) }
+    val scheduleCleanupUseCase: ScheduleCleanupUseCase by lazy { ScheduleCleanupUseCase(cleanupScheduler) }
+    val validateRepositoryUseCase: ValidateRepositoryUseCase by lazy { ValidateRepositoryUseCase(releaseRepository) }
 }

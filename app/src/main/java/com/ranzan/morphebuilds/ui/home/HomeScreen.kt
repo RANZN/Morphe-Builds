@@ -2,6 +2,7 @@ package com.ranzan.morphebuilds.ui.home
 
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
+import com.ranzan.morphebuilds.ui.util.FileIntentHelper
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
@@ -104,16 +105,18 @@ fun HomeScreen(
         viewModel.effect.collectLatest { effect ->
             when (effect) {
                 is HomeEffect.ShowSnackbar -> snackbarHostState.showSnackbar(effect.message)
-                is HomeEffect.LaunchInstallIntent -> {
+                is HomeEffect.InstallApk -> {
                     try {
-                        installLauncher.launch(effect.intent)
+                        val intent = FileIntentHelper.createInstallIntent(context, effect.fileUri)
+                        installLauncher.launch(intent)
                     } catch (e: Exception) {
                         snackbarHostState.showSnackbar("Cannot open installer: ${e.localizedMessage}")
                     }
                 }
-                is HomeEffect.LaunchShareIntent -> {
+                is HomeEffect.ShareFile -> {
                     try {
-                        context.startActivity(Intent.createChooser(effect.intent, "Open with"))
+                        val intent = FileIntentHelper.createShareIntent(context, effect.fileUri, effect.isModule)
+                        context.startActivity(Intent.createChooser(intent, "Open with"))
                     } catch (e: Exception) {
                         snackbarHostState.showSnackbar("Cannot open file: ${e.localizedMessage}")
                     }

@@ -5,13 +5,14 @@ import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.ranzan.morphebuilds.domain.repository.CleanupScheduler
 import java.util.concurrent.TimeUnit
 
-object WorkManagerScheduler {
+class WorkManagerScheduler(
+    private val context: Context
+) : CleanupScheduler {
 
-    private const val CLEANUP_WORK_NAME = "morphe_auto_cleanup_work"
-
-    fun scheduleCleanup(context: Context, intervalDays: Int) {
+    override fun scheduleCleanup(intervalDays: Int) {
         val workManager = WorkManager.getInstance(context)
 
         if (intervalDays <= 0) {
@@ -35,5 +36,9 @@ object WorkManagerScheduler {
             ExistingPeriodicWorkPolicy.UPDATE,
             cleanupRequest
         )
+    }
+
+    companion object {
+        const val CLEANUP_WORK_NAME = "morphe_auto_cleanup_work"
     }
 }

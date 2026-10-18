@@ -4,7 +4,6 @@ import androidx.lifecycle.viewModelScope
 import com.ranzan.morphebuilds.core.mvi.BaseViewModel
 import com.ranzan.morphebuilds.core.utils.Architecture
 import com.ranzan.morphebuilds.core.utils.FormatHelper
-import com.ranzan.morphebuilds.data.local.StorageManager
 import com.ranzan.morphebuilds.domain.model.AppBuild
 import com.ranzan.morphebuilds.domain.model.AppSettings
 import com.ranzan.morphebuilds.domain.model.DownloadState
@@ -25,8 +24,7 @@ class HomeViewModel(
     private val downloadBuildUseCase: DownloadBuildUseCase,
     private val scanOldBuildsUseCase: ScanOldBuildsUseCase,
     private val cleanOldBuildsUseCase: CleanOldBuildsUseCase,
-    private val manageSettingsUseCase: ManageSettingsUseCase,
-    private val storageManager: StorageManager
+    private val manageSettingsUseCase: ManageSettingsUseCase
 ) : BaseViewModel<HomeState, HomeIntent, HomeEffect>(
     initialState = HomeState(detectedDeviceArch = Architecture.detectDeviceArch())
 ) {
@@ -246,21 +244,11 @@ class HomeViewModel(
     }
 
     private fun handleInstallApk(fileUri: String) {
-        try {
-            val intent = storageManager.createInstallIntent(fileUri)
-            sendEffect(HomeEffect.LaunchInstallIntent(intent))
-        } catch (e: Exception) {
-            sendEffect(HomeEffect.ShowSnackbar("Failed to launch installer: ${e.localizedMessage}"))
-        }
+        sendEffect(HomeEffect.InstallApk(fileUri))
     }
 
     private fun handleOpenMagiskZip(fileUri: String) {
-        try {
-            val intent = storageManager.createOpenOrShareIntent(fileUri, isModule = true)
-            sendEffect(HomeEffect.LaunchShareIntent(intent))
-        } catch (e: Exception) {
-            sendEffect(HomeEffect.ShowSnackbar("Failed to open file: ${e.localizedMessage}"))
-        }
+        sendEffect(HomeEffect.ShareFile(fileUri, isModule = true))
     }
 
     private fun handleArchChange(appKey: String, arch: String) {

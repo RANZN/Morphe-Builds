@@ -9,6 +9,8 @@ import com.ranzan.morphebuilds.data.repository.PackageInspectorRepositoryImpl
 import com.ranzan.morphebuilds.data.repository.ReleaseRepositoryImpl
 import com.ranzan.morphebuilds.data.repository.SettingsRepositoryImpl
 import com.ranzan.morphebuilds.data.work.AutoCleanupWorker
+import com.ranzan.morphebuilds.data.work.WorkManagerScheduler
+import com.ranzan.morphebuilds.domain.repository.CleanupScheduler
 import com.ranzan.morphebuilds.domain.repository.DownloadRepository
 import com.ranzan.morphebuilds.domain.repository.PackageInspectorRepository
 import com.ranzan.morphebuilds.domain.repository.ReleaseRepository
@@ -19,6 +21,8 @@ import com.ranzan.morphebuilds.domain.usecase.DownloadBuildUseCase
 import com.ranzan.morphebuilds.domain.usecase.GetReleasesUseCase
 import com.ranzan.morphebuilds.domain.usecase.ManageSettingsUseCase
 import com.ranzan.morphebuilds.domain.usecase.ScanOldBuildsUseCase
+import com.ranzan.morphebuilds.domain.usecase.ScheduleCleanupUseCase
+import com.ranzan.morphebuilds.domain.usecase.ValidateRepositoryUseCase
 import com.ranzan.morphebuilds.ui.home.HomeViewModel
 import com.ranzan.morphebuilds.ui.settings.SettingsViewModel
 import org.koin.android.ext.koin.androidContext
@@ -38,6 +42,7 @@ val repositoryModule = module {
     single<SettingsRepository> { SettingsRepositoryImpl(get()) }
     single<DownloadRepository> { DownloadRepositoryImpl(get(), get()) }
     single<PackageInspectorRepository> { PackageInspectorRepositoryImpl(androidContext()) }
+    single<CleanupScheduler> { WorkManagerScheduler(androidContext()) }
 }
 
 val useCaseModule = module {
@@ -47,6 +52,8 @@ val useCaseModule = module {
     factory { DownloadBuildUseCase(get()) }
     factory { CleanOldBuildsUseCase(get(), get()) }
     factory { ManageSettingsUseCase(get()) }
+    factory { ScheduleCleanupUseCase(get()) }
+    factory { ValidateRepositoryUseCase(get()) }
 }
 
 val viewModelModule = module {
@@ -57,18 +64,16 @@ val viewModelModule = module {
             downloadBuildUseCase = get(),
             scanOldBuildsUseCase = get(),
             cleanOldBuildsUseCase = get(),
-            manageSettingsUseCase = get(),
-            storageManager = get()
+            manageSettingsUseCase = get()
         )
     }
     viewModel {
         SettingsViewModel(
             manageSettingsUseCase = get(),
-            apiService = get(),
-            context = androidContext()
+            validateRepositoryUseCase = get(),
+            scheduleCleanupUseCase = get()
         )
     }
-
 }
 
 val workerModule = module {

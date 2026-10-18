@@ -1,20 +1,19 @@
 package com.ranzan.morphebuilds.ui.settings
 
-import android.content.Context
 import androidx.lifecycle.viewModelScope
 import com.ranzan.morphebuilds.core.mvi.BaseViewModel
 import com.ranzan.morphebuilds.core.utils.Architecture
-import com.ranzan.morphebuilds.data.remote.GitHubApiService
-import com.ranzan.morphebuilds.data.work.WorkManagerScheduler
 import com.ranzan.morphebuilds.domain.model.AppSettings
 import com.ranzan.morphebuilds.domain.usecase.ManageSettingsUseCase
+import com.ranzan.morphebuilds.domain.usecase.ScheduleCleanupUseCase
+import com.ranzan.morphebuilds.domain.usecase.ValidateRepositoryUseCase
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(
     private val manageSettingsUseCase: ManageSettingsUseCase,
-    private val apiService: GitHubApiService,
-    private val context: Context
+    private val validateRepositoryUseCase: ValidateRepositoryUseCase,
+    private val scheduleCleanupUseCase: ScheduleCleanupUseCase
 ) : BaseViewModel<SettingsState, SettingsIntent, SettingsEffect>(
     initialState = SettingsState(detectedDeviceArch = Architecture.detectDeviceArch())
 ) {
@@ -79,57 +78,42 @@ class SettingsViewModel(
     }
 
     private fun handleTestRepoUrl() {
-        val currentSettings = currentState.settings.copy(
-            repoUrl = currentState.repoUrlInput.trim(),
-            githubToken = currentState.githubTokenInput.trim().ifBlank { null }
-        )
-        val repoPath = currentSettings.extractRepoPath()
-        if (repoPath == null) {
-            setState {
-                copy(
-                    testRepoMessage = "Invalid repository URL format. Please use 'owner/repo' or 'https://github.com/owner/repo'",
-                    isTestRepoSuccess = false
-                )
-            }
-            return
-        }
+        val url = currentState.repoUrlInput.trim()
+        val token = currentState.githubTokenInput.trim().ifBlank { null }
 
         viewModelScope.launch {
             setState { copy(isTestingRepo = true, testRepoMessage = null) }
-            try {
-                val releases = apiService.getReleases(
-                    owner = repoPath.first,
-                    repo = repoPath.second,
-                    token = currentSettings.githubToken,
-                    perPage = 1
-                )
-                if (releases.isNotEmpty()) {
-                    val count = releases.first().assets.size
-                    setState {
-                        copy(
-                            isTestingRepo = false,
-                            testRepoMessage = "Connected successfully! Latest release '${releases.first().tagName}' has $count assets.",
-                            isTestRepoSuccess = true
-                        )
+            val result = validateRepositoryUseCase(url, token)
+            result.fold(
+                onSuccess = { validation ->
+                    if (validation.releaseCount > 0) {
+                        setState {
+                            copy(
+                                isTestingRepo = false,
+                                testRepoMessage = "Connected successfully! Latest release '${validation.latestTag}' has ${validation.assetCount} assets.",
+                                isTestRepoSuccess = true
+                            )
+                        }
+                    } else {
+                        setState {
+                            copy(
+                                isTestingRepo = false,
+                                testRepoMessage = "Repository found, but has no published releases.",
+                                isTestRepoSuccess = false
+                            )
+                        }
                     }
-                } else {
+                },
+                onFailure = { error ->
                     setState {
                         copy(
                             isTestingRepo = false,
-                            testRepoMessage = "Repository found, but has no published releases.",
+                            testRepoMessage = "Connection failed: ${error.localizedMessage}",
                             isTestRepoSuccess = false
                         )
                     }
                 }
-            } catch (e: Exception) {
-                setState {
-                    copy(
-                        isTestingRepo = false,
-                        testRepoMessage = "Connection failed: ${e.localizedMessage}",
-                        isTestRepoSuccess = false
-                    )
-                }
-            }
+            )
         }
     }
 
@@ -158,7 +142,7 @@ class SettingsViewModel(
     private fun handleSelectCleanupInterval(days: Int) {
         viewModelScope.launch {
             manageSettingsUseCase.updateCleanupIntervalDays(days)
-            WorkManagerScheduler.scheduleCleanup(context, days)
+            scheduleCleanupUseCase(days)
             val msg = if (days > 0) "Auto-clean schedule set to every $days days" else "Auto-clean schedule disabled"
             sendEffect(SettingsEffect.ShowSnackbar(msg))
         }
@@ -172,4 +156,3 @@ class SettingsViewModel(
         }
     }
 }
-

@@ -25,9 +25,10 @@ class GitHubApiService(
         owner: String,
         repo: String,
         token: String? = null,
-        perPage: Int = 10
+        perPage: Int = 50,
+        page: Int = 1
     ): List<GitHubReleaseDto> = withContext(Dispatchers.IO) {
-        val url = "https://api.github.com/repos/$owner/$repo/releases?per_page=$perPage"
+        val url = "https://api.github.com/repos/$owner/$repo/releases?per_page=$perPage&page=$page"
 
         val requestBuilder = Request.Builder()
             .url(url)
