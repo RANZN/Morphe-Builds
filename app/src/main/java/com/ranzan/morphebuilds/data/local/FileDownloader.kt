@@ -118,6 +118,8 @@ class FileDownloader(
             response.close()
             runningCalls.remove(build.id)
 
+            destination?.let { storageManager.onDownloadComplete(it) }
+
             emit(
                 currentItem.copy(
                     state = DownloadState.COMPLETED,
@@ -128,6 +130,7 @@ class FileDownloader(
             )
         } catch (e: Exception) {
             runningCalls.remove(build.id)
+            storageManager.onDownloadFailed(destination)
             if (e is CancellationException) {
                 emit(
                     currentItem.copy(

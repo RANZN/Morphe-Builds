@@ -177,20 +177,50 @@ fun SetupDialog(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(10.dp))
                             .background(DarkSurfaceElevated)
-                            .border(1.dp, DarkBorder, RoundedCornerShape(10.dp))
+                            .border(
+                                1.dp,
+                                if (selectedFolderUri != null) AccentGreen.copy(alpha = 0.5f) else DarkBorder,
+                                RoundedCornerShape(10.dp)
+                            )
                             .padding(12.dp)
                     ) {
                         Column {
-                            Text(
-                                text = "Selected Folder:",
-                                style = MaterialTheme.typography.labelSmall.copy(color = TextMuted)
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Selected Folder:",
+                                    style = MaterialTheme.typography.labelSmall.copy(color = TextMuted)
+                                )
+                                if (selectedFolderUri != null) {
+                                    Text(
+                                        text = "✓ Permission Granted",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = AccentGreenText,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
+                                }
+                            }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = selectedFolderPath ?: "Downloads/MorpheBuilds",
                                 style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = AccentGreenText,
+                                    color = if (selectedFolderUri != null) AccentGreenText else TextPrimary,
                                     fontWeight = FontWeight.Medium
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (selectedFolderUri != null) {
+                                    "Auto-cleanup has permission to manage files in this folder."
+                                } else {
+                                    "Using public Downloads/MorpheBuilds. Choose a custom folder to grant permission for auto-cleanup of old builds."
+                                },
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = if (selectedFolderUri != null) AccentGreenText.copy(alpha = 0.8f) else TextMuted
                                 )
                             )
                         }
@@ -217,7 +247,7 @@ fun SetupDialog(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Choose Folder", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                            Text("Choose / Create Folder", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
                         }
 
                         OutlinedButton(

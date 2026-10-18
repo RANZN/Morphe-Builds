@@ -519,15 +519,30 @@ fun SettingsScreen(
 
             // Section 4: Storage & Cleanup Settings
             SettingsSectionCard(title = "Storage & Cleanup") {
-                Text(
-                    text = "Download Folder:",
-                    style = MaterialTheme.typography.labelMedium.copy(color = TextMuted)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Download Folder:",
+                        style = MaterialTheme.typography.labelMedium.copy(color = TextMuted)
+                    )
+                    if (state.settings.downloadFolderUri != null) {
+                        Text(
+                            text = "✓ Permission Granted",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = AccentGreenText,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = state.settings.downloadFolderPath ?: "Downloads/MorpheBuilds",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = AccentGreenText,
+                        color = if (state.settings.downloadFolderUri != null) AccentGreenText else TextPrimary,
                         fontWeight = FontWeight.Medium
                     )
                 )

@@ -227,7 +227,7 @@ fun HomeScreen(
                             onClick = { viewModel.processIntent(HomeIntent.SelectTab(BuildFilterTab.ALL)) },
                             text = {
                                 Text(
-                                    text = "All Apps",
+                                    text = "All",
                                     fontWeight = if (state.selectedTab == BuildFilterTab.ALL) FontWeight.Bold else FontWeight.Normal,
                                     color = if (state.selectedTab == BuildFilterTab.ALL) TextPrimary else TextSecondary
                                 )
