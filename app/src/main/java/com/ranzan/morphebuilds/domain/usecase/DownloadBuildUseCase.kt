@@ -22,4 +22,8 @@ class DownloadBuildUseCase(
             }
         }
     }
+
+    fun cancel(assetId: String) {
+        downloadRepository.cancelDownload(assetId)
+    }
 }

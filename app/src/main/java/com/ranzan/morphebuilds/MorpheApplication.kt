@@ -4,6 +4,11 @@ import android.app.Application
 import androidx.work.WorkManager
 import com.ranzan.morphebuilds.di.appModules
 import com.ranzan.morphebuilds.domain.repository.CleanupScheduler
+import com.ranzan.morphebuilds.domain.repository.SettingsRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
@@ -14,6 +19,7 @@ import org.koin.core.logger.Level
 class MorpheApplication : Application() {
 
     private val cleanupScheduler: CleanupScheduler by inject()
+    private val settingsRepository: SettingsRepository by inject()
 
     override fun onCreate() {
         super.onCreate()
@@ -27,7 +33,12 @@ class MorpheApplication : Application() {
             modules(appModules)
         }
 
-        // Initialize background auto-cleanup schedule (default 7 days)
-        cleanupScheduler.scheduleCleanup(7)
+        // Initialize background auto-cleanup schedule respecting user preference
+        CoroutineScope(Dispatchers.IO).launch {
+            val settings = settingsRepository.getSettings().first()
+            if (settings.autoCleanOldVersions && settings.cleanupIntervalDays > 0) {
+                cleanupScheduler.scheduleCleanup(settings.cleanupIntervalDays)
+            }
+        }
     }
 }

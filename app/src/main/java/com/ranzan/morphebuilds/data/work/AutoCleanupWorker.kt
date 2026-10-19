@@ -3,9 +3,8 @@ package com.ranzan.morphebuilds.data.work
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.ranzan.morphebuilds.data.local.PreferencesDataStore
-import com.ranzan.morphebuilds.data.local.StorageManager
 import com.ranzan.morphebuilds.domain.repository.DownloadRepository
+import com.ranzan.morphebuilds.domain.repository.SettingsRepository
 import com.ranzan.morphebuilds.domain.usecase.ScanOldBuildsUseCase
 import kotlinx.coroutines.flow.first
 import org.koin.core.component.KoinComponent
@@ -18,11 +17,11 @@ class AutoCleanupWorker(
 
     private val scanOldBuildsUseCase: ScanOldBuildsUseCase by inject()
     private val downloadRepository: DownloadRepository by inject()
-    private val preferencesDataStore: PreferencesDataStore by inject()
+    private val settingsRepository: SettingsRepository by inject()
 
     override suspend fun doWork(): Result {
         return try {
-            val settings = preferencesDataStore.settingsFlow.first()
+            val settings = settingsRepository.getSettings().first()
             if (!settings.autoCleanOldVersions || settings.cleanupIntervalDays <= 0) {
                 return Result.success()
             }

@@ -29,7 +29,7 @@ class HomeViewModel(
     initialState = HomeState(detectedDeviceArch = Architecture.detectDeviceArch())
 ) {
 
-    private var activeDownloadJob: Job? = null
+    private val downloadJobs = mutableMapOf<String, Job>()
 
     init {
         observeSettings()
@@ -215,20 +215,22 @@ class HomeViewModel(
         val folderUri = currentState.settings.downloadFolderUri
         val autoClean = currentState.settings.autoCleanOldVersions
 
-        activeDownloadJob?.cancel()
-        activeDownloadJob = viewModelScope.launch {
+        downloadJobs[build.id]?.cancel()
+        downloadJobs[build.id] = viewModelScope.launch {
             downloadBuildUseCase(build, folderUri, autoClean).collect { item ->
                 val downloads = currentState.activeDownloads.toMutableMap()
                 downloads[build.id] = item
                 setState { copy(activeDownloads = downloads) }
 
                 if (item.state == DownloadState.COMPLETED) {
+                    downloadJobs.remove(build.id)
                     sendEffect(HomeEffect.ShowSnackbar("Downloaded ${build.fileName} successfully"))
                     // Rescan folder
                     val files = scanOldBuildsUseCase(folderUri)
                     setState { copy(oldBuildsFound = files) }
                     updateDisplayBuilds()
                 } else if (item.state == DownloadState.FAILED) {
+                    downloadJobs.remove(build.id)
                     sendEffect(HomeEffect.ShowSnackbar("Download failed: ${item.errorMessage}"))
                 }
             }
@@ -236,7 +238,8 @@ class HomeViewModel(
     }
 
     private fun handleCancelDownload(assetId: String) {
-        activeDownloadJob?.cancel()
+        downloadJobs.remove(assetId)?.cancel()
+        downloadBuildUseCase.cancel(assetId)
         val downloads = currentState.activeDownloads.toMutableMap()
         downloads.remove(assetId)
         setState { copy(activeDownloads = downloads) }
