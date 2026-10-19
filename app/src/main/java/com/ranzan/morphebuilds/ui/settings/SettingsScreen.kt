@@ -576,7 +576,7 @@ fun SettingsScreen(
                             viewModel.processIntent(
                                 SettingsIntent.UpdateFolder(
                                     uri = null,
-                                    path = "Default: Downloads/MorpheBuilds"
+                                    path = "Default: App Storage (Downloads/MorpheBuilds)"
                                 )
                             )
                         },

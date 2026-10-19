@@ -6,17 +6,20 @@ sealed interface AppUpdateStatus {
     data class UpdateAvailable(
         val installedVersion: String?,
         val latestVersion: String,
-        val downloadedVersion: String? = null
+        val downloadedVersion: String? = null,
+        val downloadedFileUri: String? = null
     ) : AppUpdateStatus
 
     data class UpToDate(
         val currentVersion: String,
-        val downloadedVersion: String? = null
+        val downloadedVersion: String? = null,
+        val downloadedFileUri: String? = null
     ) : AppUpdateStatus
 
     data class NotInstalled(
         val latestVersion: String,
-        val downloadedVersion: String? = null
+        val downloadedVersion: String? = null,
+        val downloadedFileUri: String? = null
     ) : AppUpdateStatus
 
     data class DownloadedOnly(

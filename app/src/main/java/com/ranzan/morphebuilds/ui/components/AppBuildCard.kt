@@ -401,9 +401,13 @@ private fun ActionButtonsSection(
     onInstallClick: (String) -> Unit,
     onOpenZipClick: (String) -> Unit
 ) {
-    val downloadedUri = (updateStatus as? AppUpdateStatus.DownloadedOnly)?.fileUri
-        ?: (updateStatus as? AppUpdateStatus.UpdateAvailable)?.downloadedVersion?.let { downloadItem?.destinationUri }
-        ?: downloadItem?.destinationUri
+    val downloadedUri = when (updateStatus) {
+        is AppUpdateStatus.DownloadedOnly -> updateStatus.fileUri
+        is AppUpdateStatus.UpdateAvailable -> updateStatus.downloadedFileUri ?: downloadItem?.destinationUri
+        is AppUpdateStatus.UpToDate -> updateStatus.downloadedFileUri ?: downloadItem?.destinationUri
+        is AppUpdateStatus.NotInstalled -> updateStatus.downloadedFileUri ?: downloadItem?.destinationUri
+        else -> downloadItem?.destinationUri
+    }
 
     Row(
         modifier = Modifier.fillMaxWidth(),

@@ -71,7 +71,7 @@ fun SetupDialog(
 ) {
     val context = LocalContext.current
     var selectedFolderUri by remember { mutableStateOf<String?>(null) }
-    var selectedFolderPath by remember { mutableStateOf<String?>("Default: Downloads/MorpheBuilds") }
+    var selectedFolderPath by remember { mutableStateOf<String?>("Default: App Storage (Downloads/MorpheBuilds)") }
     var selectedArch by remember { mutableStateOf(detectedDeviceArch.id) }
     var showApks by remember { mutableStateOf(true) }
     var showModules by remember { mutableStateOf(false) }
@@ -217,7 +217,7 @@ fun SetupDialog(
                                 text = if (selectedFolderUri != null) {
                                     "Auto-cleanup has permission to manage files in this folder."
                                 } else {
-                                    "Using public Downloads/MorpheBuilds. Choose a custom folder to grant permission for auto-cleanup of old builds."
+                                    "Using safe app storage. Choose or create a custom folder (e.g. in Downloads) to easily manage files outside the app."
                                 },
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = if (selectedFolderUri != null) AccentGreenText.copy(alpha = 0.8f) else TextMuted
@@ -253,7 +253,7 @@ fun SetupDialog(
                         OutlinedButton(
                             onClick = {
                                 selectedFolderUri = null
-                                selectedFolderPath = "Default: Downloads/MorpheBuilds"
+                                selectedFolderPath = "Default: App Storage (Downloads/MorpheBuilds)"
                             },
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
                             border = BorderStroke(1.dp, DarkBorder),

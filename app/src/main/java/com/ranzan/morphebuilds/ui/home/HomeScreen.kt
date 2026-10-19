@@ -85,6 +85,7 @@ import com.ranzan.morphebuilds.ui.theme.TextMuted
 import com.ranzan.morphebuilds.ui.theme.TextPrimary
 import com.ranzan.morphebuilds.ui.theme.TextSecondary
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -107,7 +108,9 @@ fun HomeScreen(
                 is HomeEffect.ShowSnackbar -> snackbarHostState.showSnackbar(effect.message)
                 is HomeEffect.InstallApk -> {
                     try {
-                        val intent = FileIntentHelper.createInstallIntent(context, effect.fileUri)
+                        val intent = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            FileIntentHelper.createInstallIntent(context, effect.fileUri)
+                        }
                         installLauncher.launch(intent)
                     } catch (e: Exception) {
                         snackbarHostState.showSnackbar("Cannot open installer: ${e.localizedMessage}")
@@ -115,7 +118,9 @@ fun HomeScreen(
                 }
                 is HomeEffect.ShareFile -> {
                     try {
-                        val intent = FileIntentHelper.createShareIntent(context, effect.fileUri, effect.isModule)
+                        val intent = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            FileIntentHelper.createShareIntent(context, effect.fileUri, effect.isModule)
+                        }
                         context.startActivity(Intent.createChooser(intent, "Open with"))
                     } catch (e: Exception) {
                         snackbarHostState.showSnackbar("Cannot open file: ${e.localizedMessage}")

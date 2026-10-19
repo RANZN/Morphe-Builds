@@ -24,6 +24,7 @@ class CheckUpdatesUseCase(
         }
 
         val downloadedVersion = matchingFile?.version
+        val downloadedFileUri = matchingFile?.uriString
 
         return when {
             installedVersion != null -> {
@@ -32,12 +33,14 @@ class CheckUpdatesUseCase(
                     AppUpdateStatus.UpdateAvailable(
                         installedVersion = installedVersion,
                         latestVersion = build.version,
-                        downloadedVersion = downloadedVersion
+                        downloadedVersion = downloadedVersion,
+                        downloadedFileUri = downloadedFileUri
                     )
                 } else {
                     AppUpdateStatus.UpToDate(
                         currentVersion = installedVersion,
-                        downloadedVersion = downloadedVersion
+                        downloadedVersion = downloadedVersion,
+                        downloadedFileUri = downloadedFileUri
                     )
                 }
             }
@@ -51,7 +54,8 @@ class CheckUpdatesUseCase(
             else -> {
                 AppUpdateStatus.NotInstalled(
                     latestVersion = build.version,
-                    downloadedVersion = downloadedVersion
+                    downloadedVersion = downloadedVersion,
+                    downloadedFileUri = downloadedFileUri
                 )
             }
         }
