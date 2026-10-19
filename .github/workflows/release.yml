@@ -40,6 +40,15 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
+          # Detect installed Android build-tools version
+          SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          if [ -d "$SDK_ROOT/build-tools" ]; then
+            BUILD_TOOLS=$(ls -1d "$SDK_ROOT"/build-tools/* | sort -V | tail -n 1 | xargs basename)
+          fi
+          BUILD_TOOLS="${BUILD_TOOLS:-35.0.0}"
+          echo "build_tools_version=$BUILD_TOOLS" >> $GITHUB_OUTPUT
+          echo "Using Android build-tools version: $BUILD_TOOLS"
+
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "has_keystore=true" >> $GITHUB_OUTPUT
             echo "Keystore secret detected. Building Release APK..."
@@ -54,6 +63,8 @@ jobs:
         if: steps.build_apk.outputs.has_keystore == 'true'
         uses: r0adkll/sign-android-release@v1
         id: sign_apk
+        env:
+          BUILD_TOOLS_VERSION: ${{ steps.build_apk.outputs.build_tools_version }}
         with:
           releaseDirectory: app/build/outputs/apk/release
           signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
