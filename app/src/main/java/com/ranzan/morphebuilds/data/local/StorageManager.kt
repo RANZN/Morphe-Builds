@@ -1,28 +1,15 @@
 package com.ranzan.morphebuilds.data.local
 
-import android.content.ContentUris
-import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
-import android.os.Build
 import android.os.Environment
-import android.provider.MediaStore
+import android.provider.OpenableColumns
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.ranzan.morphebuilds.domain.model.AppType
 import com.ranzan.morphebuilds.domain.model.CleanableFile
 import java.io.File
-import java.io.FileOutputStream
-import java.io.OutputStream
-
-data class DownloadDestination(
-    val outputStream: OutputStream,
-    val finalUri: String,
-    val displayPath: String,
-    val isDocumentFile: Boolean,
-    val isMediaStore: Boolean = false
-)
 
 class StorageManager(private val context: Context) {
 
@@ -39,165 +26,11 @@ class StorageManager(private val context: Context) {
         return morpheDir
     }
 
-    /**
-     * Prepares a write stream for the incoming build file.
-     * 1. If [folderUriString] is provided and valid, uses Storage Access Framework (SAF) DocumentFile.
-     * 2. On Android 10+ (API 29+), uses MediaStore.Downloads for direct access to Downloads/MorpheBuilds.
-     * 3. Fallback to app-specific external storage which never fails with EACCES permission denied.
-     */
-    fun prepareDestination(fileName: String, folderUriString: String?): DownloadDestination {
-        val mimeType = if (fileName.endsWith(".apk", ignoreCase = true)) {
-            "application/vnd.android.package-archive"
-        } else {
-            "application/zip"
-        }
-
-        // Strategy 1: User-selected custom folder via SAF
-        if (!folderUriString.isNullOrBlank()) {
-            try {
-                val treeUri = folderUriString.toUri()
-                val docDir = DocumentFile.fromTreeUri(context, treeUri)
-                if (docDir != null && docDir.canWrite()) {
-                    val existing = docDir.findFile(fileName)
-                    val targetDoc = if (existing != null && existing.canWrite()) {
-                        existing
-                    } else {
-                        try {
-                            existing?.delete()
-                        } catch (_: Exception) {}
-                        docDir.createFile(mimeType, fileName)
-                    }
-
-                    if (targetDoc != null) {
-                        val stream = context.contentResolver.openOutputStream(targetDoc.uri, "w")
-                        if (stream != null) {
-                            return DownloadDestination(
-                                outputStream = stream,
-                                finalUri = targetDoc.uri.toString(),
-                                displayPath = targetDoc.name ?: fileName,
-                                isDocumentFile = true,
-                                isMediaStore = false
-                            )
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-
-        // Strategy 2: Android 10+ (API 29+) MediaStore.Downloads
-        // Writes directly to public Download/MorpheBuilds without needing any runtime permissions
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            try {
-                // Delete existing entry if present
-                try {
-                    val projection = arrayOf(MediaStore.MediaColumns._ID)
-                    val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
-                    val selectionArgs = arrayOf(fileName, "${Environment.DIRECTORY_DOWNLOADS}/MorpheBuilds%")
-                    context.contentResolver.query(
-                        MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                        projection,
-                        selection,
-                        selectionArgs,
-                        null
-                    )?.use { cursor ->
-                        val idCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
-                        while (cursor.moveToNext()) {
-                            val id = cursor.getLong(idCol)
-                            val delUri = ContentUris.withAppendedId(MediaStore.Downloads.EXTERNAL_CONTENT_URI, id)
-                            try {
-                                context.contentResolver.delete(delUri, null, null)
-                            } catch (_: Exception) {}
-                        }
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-
-                val contentValues = ContentValues().apply {
-                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                    put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/MorpheBuilds")
-                    put(MediaStore.MediaColumns.IS_PENDING, 1)
-                }
-
-                val mediaUri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
-                if (mediaUri != null) {
-                    val stream = context.contentResolver.openOutputStream(mediaUri, "w")
-                    if (stream != null) {
-                        return DownloadDestination(
-                            outputStream = stream,
-                            finalUri = mediaUri.toString(),
-                            displayPath = "Downloads/MorpheBuilds/$fileName",
-                            isDocumentFile = false,
-                            isMediaStore = true
-                        )
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-
-        // Strategy 3: Guaranteed safe app-specific external storage
-        val targetDir = getDefaultDownloadDir()
-        val targetFile = File(targetDir, fileName)
-        if (targetFile.exists()) {
-            targetFile.delete()
-        }
-        targetFile.createNewFile()
-        val fileProviderUri = FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            targetFile
-        )
-
-        return DownloadDestination(
-            outputStream = FileOutputStream(targetFile),
-            finalUri = fileProviderUri.toString(),
-            displayPath = targetFile.name,
-            isDocumentFile = false,
-            isMediaStore = false
-        )
-    }
-
-    /**
-     * Marks the download as completed (e.g. clears IS_PENDING flag for MediaStore).
-     */
-    fun onDownloadComplete(destination: DownloadDestination) {
-        if (destination.isMediaStore && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            try {
-                val uri = destination.finalUri.toUri()
-                val values = ContentValues().apply {
-                    put(MediaStore.MediaColumns.IS_PENDING, 0)
-                }
-                context.contentResolver.update(uri, values, null, null)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    /**
-     * Cleans up incomplete download if failed or cancelled.
-     */
-    fun onDownloadFailed(destination: DownloadDestination?) {
-        if (destination == null) return
-        try {
-            if (destination.isMediaStore) {
-                context.contentResolver.delete(destination.finalUri.toUri(), null, null)
-            } else if (destination.isDocumentFile) {
-                val doc = DocumentFile.fromSingleUri(context, destination.finalUri.toUri())
-                doc?.delete()
-            }
-        } catch (_: Exception) {}
-    }
-
     fun scanFiles(folderUriString: String?): List<CleanableFile> {
         val result = mutableListOf<CleanableFile>()
+        val seenNames = mutableSetOf<String>()
 
-        // 1. Scan SAF folder if configured
+        // 1. Scan user-selected SAF folder if configured
         if (!folderUriString.isNullOrBlank()) {
             try {
                 val treeUri = folderUriString.toUri()
@@ -206,92 +39,80 @@ class StorageManager(private val context: Context) {
                     docDir.listFiles().forEach { doc ->
                         val name = doc.name ?: return@forEach
                         if (name.endsWith(".apk", ignoreCase = true) || name.endsWith(".zip", ignoreCase = true)) {
+                            var size = doc.length()
+                            if (size <= 0L) {
+                                size = queryFileSize(doc.uri)
+                            }
+                            // Clean up zero-byte orphan files from failed downloads
+                            if (size <= 0L) {
+                                try {
+                                    doc.delete()
+                                } catch (_: Exception) {}
+                                return@forEach
+                            }
+                            seenNames.add(name.lowercase())
                             result.add(
                                 parseToCleanable(
                                     name = name,
                                     uriString = doc.uri.toString(),
-                                    size = doc.length(),
+                                    size = size,
                                     lastModified = doc.lastModified()
                                 )
                             )
                         }
                     }
-                    return result
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
 
-        // 2. Scan MediaStore Downloads on Android 10+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            try {
-                val projection = arrayOf(
-                    MediaStore.MediaColumns._ID,
-                    MediaStore.MediaColumns.DISPLAY_NAME,
-                    MediaStore.MediaColumns.SIZE,
-                    MediaStore.MediaColumns.DATE_MODIFIED
-                )
-                val selection = "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
-                val selectionArgs = arrayOf("${Environment.DIRECTORY_DOWNLOADS}/MorpheBuilds%")
-                context.contentResolver.query(
-                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                    projection,
-                    selection,
-                    selectionArgs,
-                    null
-                )?.use { cursor ->
-                    val idCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
-                    val nameCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
-                    val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
-                    val dateCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_MODIFIED)
-
-                    while (cursor.moveToNext()) {
-                        val id = cursor.getLong(idCol)
-                        val name = cursor.getString(nameCol) ?: continue
-                        val size = cursor.getLong(sizeCol)
-                        val dateSec = cursor.getLong(dateCol)
-
-                        if (name.endsWith(".apk", ignoreCase = true) || name.endsWith(".zip", ignoreCase = true)) {
-                            val uri = ContentUris.withAppendedId(MediaStore.Downloads.EXTERNAL_CONTENT_URI, id)
-                            result.add(
-                                parseToCleanable(
-                                    name = name,
-                                    uriString = uri.toString(),
-                                    size = size,
-                                    lastModified = dateSec * 1000
-                                )
-                            )
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-
-        // 3. Scan app-specific downloads
+        // 2. Scan app-specific downloads folder
         val defaultDir = getDefaultDownloadDir()
         defaultDir.listFiles()?.forEach { file ->
             val name = file.name
             if (name.endsWith(".apk", ignoreCase = true) || name.endsWith(".zip", ignoreCase = true)) {
-                val fileUri = FileProvider.getUriForFile(
-                    context,
-                    "${context.packageName}.fileprovider",
-                    file
-                )
-                result.add(
-                    parseToCleanable(
-                        name = name,
-                        uriString = fileUri.toString(),
-                        size = file.length(),
-                        lastModified = file.lastModified()
+                // Clean up zero-byte orphan files
+                if (file.length() <= 0L) {
+                    try {
+                        file.delete()
+                    } catch (_: Exception) {}
+                    return@forEach
+                }
+
+                if (!seenNames.contains(name.lowercase())) {
+                    seenNames.add(name.lowercase())
+                    val fileUri = FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        file
                     )
-                )
+                    result.add(
+                        parseToCleanable(
+                            name = name,
+                            uriString = fileUri.toString(),
+                            size = file.length(),
+                            lastModified = file.lastModified()
+                        )
+                    )
+                }
             }
         }
 
         return result
+    }
+
+    private fun queryFileSize(uri: Uri): Long {
+        return try {
+            context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex(OpenableColumns.SIZE)
+                    if (idx != -1) cursor.getLong(idx) else 0L
+                } else 0L
+            } ?: 0L
+        } catch (_: Exception) {
+            0L
+        }
     }
 
     private fun parseToCleanable(name: String, uriString: String, size: Long, lastModified: Long): CleanableFile {
@@ -318,17 +139,29 @@ class StorageManager(private val context: Context) {
             val uri = uriString.toUri()
             when {
                 uri.scheme == "content" -> {
-                    // Try MediaStore / ContentResolver delete first
-                    val deletedFromResolver = try {
-                        context.contentResolver.delete(uri, null, null) > 0
-                    } catch (_: Exception) {
-                        false
-                    }
-                    if (deletedFromResolver) {
-                        true
+                    if (uri.authority == "${context.packageName}.fileprovider") {
+                        val fileName = uri.lastPathSegment ?: ""
+                        val file = File(getDefaultDownloadDir(), fileName)
+                        if (file.exists()) {
+                            file.delete()
+                        } else {
+                            try {
+                                context.contentResolver.delete(uri, null, null) > 0
+                            } catch (_: Exception) {
+                                false
+                            }
+                        }
                     } else {
                         val docFile = DocumentFile.fromSingleUri(context, uri)
-                        docFile?.delete() ?: false
+                        if (docFile != null && docFile.exists()) {
+                            docFile.delete()
+                        } else {
+                            try {
+                                context.contentResolver.delete(uri, null, null) > 0
+                            } catch (_: Exception) {
+                                false
+                            }
+                        }
                     }
                 }
                 uri.scheme == "file" -> {

@@ -1,7 +1,7 @@
 package com.ranzan.morphebuilds.di
 
 import android.content.Context
-import com.ranzan.morphebuilds.data.local.FileDownloader
+import com.ranzan.morphebuilds.data.local.AndroidDownloadManagerDownloader
 import com.ranzan.morphebuilds.data.local.PreferencesDataStore
 import com.ranzan.morphebuilds.data.local.StorageManager
 import com.ranzan.morphebuilds.data.remote.GitHubApiService
@@ -30,12 +30,16 @@ class AppContainer(val context: Context) {
     val apiService: GitHubApiService by lazy { GitHubApiService() }
     val preferencesDataStore: PreferencesDataStore by lazy { PreferencesDataStore(context) }
     val storageManager: StorageManager by lazy { StorageManager(context) }
-    val fileDownloader: FileDownloader by lazy { FileDownloader(storageManager) }
+    val androidDownloadManagerDownloader: AndroidDownloadManagerDownloader by lazy {
+        AndroidDownloadManagerDownloader(context, storageManager)
+    }
 
     // Repositories
     val releaseRepository: ReleaseRepository by lazy { ReleaseRepositoryImpl(apiService) }
     val settingsRepository: SettingsRepository by lazy { SettingsRepositoryImpl(preferencesDataStore) }
-    val downloadRepository: DownloadRepository by lazy { DownloadRepositoryImpl(fileDownloader, storageManager) }
+    val downloadRepository: DownloadRepository by lazy {
+        DownloadRepositoryImpl(androidDownloadManagerDownloader, storageManager)
+    }
     val packageInspectorRepository: PackageInspectorRepository by lazy { PackageInspectorRepositoryImpl(context) }
     val cleanupScheduler: CleanupScheduler by lazy { WorkManagerScheduler(context) }
 

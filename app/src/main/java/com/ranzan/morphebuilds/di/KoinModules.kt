@@ -1,6 +1,7 @@
 package com.ranzan.morphebuilds.di
 
-import com.ranzan.morphebuilds.data.local.FileDownloader
+import com.ranzan.morphebuilds.data.local.AndroidDownloadManagerDownloader
+import com.ranzan.morphebuilds.data.local.BuildDownloader
 import com.ranzan.morphebuilds.data.local.PreferencesDataStore
 import com.ranzan.morphebuilds.data.local.StorageManager
 import com.ranzan.morphebuilds.data.remote.GitHubApiService
@@ -34,7 +35,10 @@ val appModule = module {
     single { GitHubApiService() }
     single { PreferencesDataStore(androidContext()) }
     single { StorageManager(androidContext()) }
-    single { FileDownloader(get()) }
+
+    // Android system DownloadManager downloader
+    single { AndroidDownloadManagerDownloader(androidContext(), get()) }
+    single<BuildDownloader> { get<AndroidDownloadManagerDownloader>() }
 }
 
 val repositoryModule = module {
