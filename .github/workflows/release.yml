@@ -6,6 +6,8 @@ on:
       - master
     tags:
       - 'v*'
+  release:
+    types: [published]
   workflow_dispatch: # Allows manual trigger from the GitHub Actions tab
 
 permissions:
@@ -34,17 +36,22 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build APK
+        id: build_apk
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "has_keystore=true" >> $GITHUB_OUTPUT
             echo "Keystore secret detected. Building Release APK..."
             ./gradlew assembleRelease
           else
+            echo "has_keystore=false" >> $GITHUB_OUTPUT
             echo "No keystore secret detected. Building Debug APK..."
             ./gradlew assembleDebug
           fi
 
       - name: Sign Release APK
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: steps.build_apk.outputs.has_keystore == 'true'
         uses: r0adkll/sign-android-release@v1
         id: sign_apk
         with:
@@ -56,21 +63,30 @@ jobs:
 
       - name: Package & Rename APK
         id: prepare_apk
+        env:
+          SIGNED_APK: ${{ steps.sign_apk.outputs.signedReleaseFile }}
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          if [ -n "${{ steps.sign_apk.outputs.signedFile }}" ]; then
-            APK_FILE="${{ steps.sign_apk.outputs.signedFile }}"
+          if [ -n "$SIGNED_APK" ] && [ -f "$SIGNED_APK" ]; then
+            APK_FILE="$SIGNED_APK"
           else
             APK_FILE=$(find app/build/outputs/apk/ -name "*.apk" | head -n 1)
           fi
 
-          if [ -z "$APK_FILE" ]; then
+          if [ -z "$APK_FILE" ] || [ ! -f "$APK_FILE" ]; then
             echo "Error: No APK found!"
             exit 1
           fi
 
-          # Determine version from tag or app/build.gradle.kts
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
+          echo "Selected APK: $APK_FILE"
+
+          # Determine version from tag, release event, or app/build.gradle.kts
+          if [[ "$REF" == refs/tags/* ]]; then
+            VERSION="${REF_NAME#v}"
+          elif [ -n "$RELEASE_TAG" ]; then
+            VERSION="${RELEASE_TAG#v}"
           else
             VERSION=$(grep -m1 'versionName' app/build.gradle.kts | sed -E 's/.*"([^"]+)".*/\1/')
             if [ -z "$VERSION" ]; then
